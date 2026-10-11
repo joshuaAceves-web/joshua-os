@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Joshua OS - Business Management System
 
-## Getting Started
+A comprehensive business management system built with Next.js, featuring CRM, Sales Pipeline, Project Management, Task Tracking, Forms, and Automation.
 
-First, run the development server:
+## Quick Start
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+1. **Set up database** (PostgreSQL or Neon):
+   - Update `DATABASE_URL` in `.env.local`
+
+2. **Install & Setup**:
+   ```bash
+   npm install
+   npm run db:push
+   npm run db:seed
+   ```
+
+3. **Run development server**:
+   ```bash
+   npm run dev
+   ```
+
+4. **Login with demo credentials**:
+   - Email: `admin@joshua.com`
+   - Password: `admin123`
+
+## Features (Phase 1-4 Complete + Email/SMS/Tracking)
+- ✅ Authentication & Workspace Management
+- ✅ Contacts & Opportunities
+- ✅ Sales Pipeline with 6 stages
+- ✅ Projects & Tasks with templates
+- ✅ Dashboard with KPIs
+- ✅ Lead capture forms
+- ✅ Automation engine
+- ✅ Email Sending (Resend)
+- ✅ SMS Sending (Twilio)
+- ✅ Visitor Tracking (IP, Email, Pages)
+
+## Setup Email & SMS
+
+### Email (Resend)
+1. Sign up at https://resend.com
+2. Get your API key
+3. Add to `.env.local`:
+```
+RESEND_API_KEY="your-api-key"
+RESEND_FROM_EMAIL="noreply@yourdomain.com"
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### SMS (Twilio)
+1. Sign up at https://twilio.com
+2. Get Account SID, Auth Token, and Phone Number
+3. Add to `.env.local`:
+```
+TWILIO_ACCOUNT_SID="your-sid"
+TWILIO_AUTH_TOKEN="your-token"
+TWILIO_PHONE_NUMBER="+1234567890"
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Available Commands
+```bash
+npm run dev              # Start dev server
+npm run build           # Build for production
+npm run db:push         # Sync database schema
+npm run db:seed         # Populate test data
+npm run db:studio       # Prisma Studio
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Tech Stack
+- Next.js 16, React 19, TypeScript
+- PostgreSQL + Prisma ORM
+- NextAuth.js, Tailwind CSS
+- Resend (Email), Twilio (SMS)
+- IP Tracking & Visitor Analytics

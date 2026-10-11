@@ -1,0 +1,713 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// WORKSPACE & AUTH
+// ============================================
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  contacts  Contact[]
+  opportunities Opportunity[]
+  projects  Project[]
+  tasks     Task[]
+  forms     Form[]
+  submissions FormSubmission[]
+  automations Automation[]
+  automationRuns AutomationRun[]
+  activities Activity[]
+  notifications Notification[]
+  visitors  Visitor[]
+  emailTemplates EmailTemplate[]
+  bookings  Booking[]
+  calendarEvents CalendarEvent[]
+  calendarIntegrations CalendarIntegration[]
+  messages  Message[]
+  conversations Conversation[]
+  whatsappIntegrations WhatsAppIntegration[]
+  inboxItems InboxItem[]
+  inboxReplies InboxReply[]
+  jobs      Job[]
+  settings  WorkspaceSettings?
+  invitations UserInvitation[]
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String
+  name          String?
+  password      String   // bcrypt hashed
+  role          String   @default("member") // admin, member
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  activities    Activity[]
+  bookings      Booking[]
+  calendarIntegrations CalendarIntegration[]
+
+  @@unique([workspaceId, email])
+  @@index([workspaceId])
+}
+
+// ============================================
+// CRM - CONTACTS & OPPORTUNITIES
+// ============================================
+
+model Contact {
+  id            String   @id @default(cuid())
+  firstName     String
+  lastName      String?
+  email         String?
+  phone         String?
+  businessName  String?
+  service       String?
+  source        String?
+  status        String   @default("NEW") // NEW, CONTACTED, QUALIFIED, NURTURE, CLOSED
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  opportunities Opportunity[]
+  projects      Project[]
+  activities    Activity[]
+  automationRuns AutomationRun[]
+  bookings      Booking[]
+  conversations Conversation[]
+  messages      Message[]
+  inboxItems    InboxItem[]
+
+  @@index([workspaceId, email])
+  @@index([workspaceId, createdAt])
+}
+
+model Opportunity {
+  id            String   @id @default(cuid())
+  name          String?
+  estimatedValue Float?
+  currency      String   @default("MXN")
+  stage         String   @default("NEW_LEAD") // NEW_LEAD, CONTACTED, MEETING, PROPOSAL, WON, LOST
+  status        String   @default("OPEN") // OPEN, WON, LOST
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  closedAt      DateTime?
+
+  contactId     String
+  contact       Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  activities    Activity[]
+  automationRuns AutomationRun[]
+
+  @@index([workspaceId, stage, status])
+  @@index([contactId])
+}
+
+// ============================================
+// PROJECTS & TASKS
+// ============================================
+
+model Project {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  service       String?
+  status        String   @default("NOT_STARTED") // NOT_STARTED, IN_PROGRESS, WAITING, REVIEW, COMPLETED
+  startDate     DateTime?
+  dueDate       DateTime?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  contactId     String
+  contact       Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  templateId    String?
+  template      ProjectTemplate? @relation(fields: [templateId], references: [id])
+
+  tasks         Task[]
+  activities    Activity[]
+  automationRuns AutomationRun[]
+
+  @@index([workspaceId, status])
+  @@index([contactId])
+  @@index([templateId])
+}
+
+model ProjectTemplate {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  description   String?
+  tasks         String   // JSON array of task names
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  projects      Project[]
+}
+
+model Task {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  status        String   @default("TODO") // TODO, IN_PROGRESS, DONE
+  priority      String   @default("MEDIUM") // LOW, MEDIUM, HIGH
+  dueDate       DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  completedAt   DateTime?
+
+  projectId     String?
+  project       Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  activities    Activity[]
+  automationRuns AutomationRun[]
+
+  @@index([workspaceId, status, dueDate])
+  @@index([projectId])
+}
+
+// ============================================
+// FORMS & SUBMISSIONS
+// ============================================
+
+model Form {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  description   String?
+  isActive      Boolean  @default(true)
+  fields        String   // JSON array
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  submissions   FormSubmission[]
+  automationTriggers Automation[] @relation("FormTrigger")
+
+  @@index([workspaceId, slug])
+}
+
+model FormSubmission {
+  id            String   @id @default(cuid())
+  data          String   // JSON object with form data
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+
+  formId        String
+  form          Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  automationRuns AutomationRun[]
+  inboxItem      InboxItem?
+
+  @@index([workspaceId, formId, createdAt])
+}
+
+// ============================================
+// AUTOMATIONS
+// ============================================
+
+model Automation {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  isActive      Boolean  @default(true)
+  trigger       String   // form.submitted, contact.created, opportunity.stage_changed, etc.
+  triggerConfig String?  // JSON with trigger conditions
+  actions       String   // JSON array of actions
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  formId        String?
+  form          Form? @relation("FormTrigger", fields: [formId], references: [id], onDelete: SetNull)
+
+  runs          AutomationRun[]
+
+  @@index([workspaceId, isActive, trigger])
+}
+
+model AutomationRun {
+  id            String   @id @default(cuid())
+  status        String   @default("RUNNING") // RUNNING, SUCCESS, FAILED
+  depth         Int      @default(1) // Loop protection
+  correlationId String   // Group related runs
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  automationId  String
+  automation    Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  contactId     String?
+  contact       Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  opportunityId String?
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+
+  projectId     String?
+  project       Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  taskId        String?
+  task          Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  submissionId  String?
+  submission    FormSubmission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+
+  steps         AutomationStep[]
+  jobs          Job[]
+
+  @@index([workspaceId, automationId, status])
+  @@index([correlationId])
+}
+
+model AutomationStep {
+  id            String   @id @default(cuid())
+  actionType    String   // CREATE_TASK, CREATE_NOTIFICATION, etc.
+  config        String?  // JSON with action config
+  status        String   @default("PENDING") // PENDING, SUCCESS, FAILED
+  error         String?
+  result        String?  // JSON with action result
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  runId         String
+  run           AutomationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, status])
+}
+
+// ============================================
+// ACTIVITY & NOTIFICATIONS
+// ============================================
+
+model Activity {
+  id            String   @id @default(cuid())
+  type          String   // contact_created, opportunity_moved, task_completed, etc.
+  description   String
+  metadata      String?  // JSON with additional data
+  createdAt     DateTime @default(now())
+
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  userId        String?
+  user          User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  contactId     String?
+  contact       Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  opportunityId String?
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  projectId     String?
+  project       Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  taskId        String?
+  task          Task? @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  inboxItem     InboxItem?
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, type])
+}
+
+model Notification {
+  id            String   @id @default(cuid())
+  title         String
+  message       String
+  type          String   @default("INFO") // INFO, SUCCESS, WARNING, ERROR
+  isRead        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, isRead, createdAt])
+}
+
+// ============================================
+// TRACKING & VISITORS
+// ============================================
+
+model Visitor {
+  id            String   @id @default(cuid())
+  email         String?
+  ipAddress     String
+  userAgent     String?
+  country       String?
+  page          String?
+  createdAt     DateTime @default(now())
+
+  workspaceId   String?
+  workspace     Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([email, createdAt])
+  @@index([ipAddress])
+  @@index([workspaceId, createdAt])
+}
+
+// ============================================
+// EMAIL TEMPLATES (Phase 6)
+// ============================================
+
+model EmailTemplate {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String
+  description   String?
+  subject       String   // Template with {{variables}}
+  html          String   // HTML content with {{variables}}
+  plainText     String?  // Plain text version
+  variables     String   // JSON array of variable names
+  category      String?  // welcome, follow_up, confirmation, etc.
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, category])
+  @@index([workspaceId, isActive])
+}
+
+// ============================================
+// UNIFIED INBOX (Phase 9)
+// ============================================
+
+model InboxItem {
+  id            String   @id @default(cuid())
+  type          String   // message, email, form_submission, activity
+  subject       String?
+  preview       String   // First 100 chars
+  body          String   // Full content
+  fromName      String?
+  fromEmail     String?
+  fromPhone     String?
+  isRead        Boolean  @default(false)
+  isFlagged     Boolean  @default(false)
+  priority      String   @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  labels        String   // JSON array of labels
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations to source items
+  messageId     String?  @unique
+  message       Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  submissionId  String?  @unique
+  submission    FormSubmission? @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  activityId    String?  @unique
+  activity      Activity? @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  contactId     String?
+  contact       Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  replies       InboxReply[]
+
+  @@index([workspaceId, isRead, createdAt])
+  @@index([contactId])
+  @@index([type])
+}
+
+model InboxReply {
+  id            String   @id @default(cuid())
+  body          String
+  channel       String   // email, sms, whatsapp
+  createdAt     DateTime @default(now())
+
+  inboxItemId   String
+  inboxItem     InboxItem @relation(fields: [inboxItemId], references: [id], onDelete: Cascade)
+
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([inboxItemId])
+}
+
+// ============================================
+// MESSAGING (Phase 8 - SMS + WhatsApp)
+// ============================================
+
+model Message {
+  id            String   @id @default(cuid())
+  channel       String   // sms, whatsapp, email
+  direction     String   // inbound, outbound
+  body          String
+  mediaUrls     String?  // JSON array of URLs
+  status        String   @default("PENDING") // PENDING, SENT, DELIVERED, FAILED, READ
+  phoneNumber   String?  // For SMS/WhatsApp
+  externalId    String?  // Provider message ID
+  metadata      String?  // JSON with provider-specific data
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  contactId     String?
+  contact       Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  inboxItem     InboxItem?
+
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, contactId, createdAt])
+  @@index([conversationId])
+  @@index([externalId])
+}
+
+model Conversation {
+  id            String   @id @default(cuid())
+  channel       String   // sms, whatsapp
+  phoneNumber   String
+  status        String   @default("ACTIVE") // ACTIVE, ARCHIVED, CLOSED
+  lastMessageAt DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  contactId     String?
+  contact       Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  messages      Message[]
+
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, channel, phoneNumber])
+  @@index([workspaceId, status])
+  @@index([contactId])
+}
+
+model WhatsAppIntegration {
+  id                   String   @id @default(cuid())
+  businessAccountId    String
+  phoneNumberId        String
+  accessToken          String   // Encrypted
+  webhookToken         String?  // For webhook verification
+  isActive             Boolean  @default(true)
+  lastSyncAt           DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  workspaceId          String
+  workspace            Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, phoneNumberId])
+  @@index([workspaceId, isActive])
+}
+
+// ============================================
+// CALENDAR & BOOKINGS (Phase 7)
+// ============================================
+
+model Booking {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  startTime     DateTime
+  endTime       DateTime
+  duration      Int      // minutes
+  status        String   @default("PENDING") // PENDING, CONFIRMED, CANCELLED, COMPLETED
+  guestEmail    String?
+  guestName     String?
+  guestPhone    String?
+  notes         String?
+  location      String?
+  conferenceUrl String?  // Google Meet, Zoom, etc.
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  contactId     String?
+  contact       Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  userId        String?
+  user          User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  calendarEvent CalendarEvent?
+
+  @@index([workspaceId, startTime, status])
+  @@index([contactId])
+  @@index([userId])
+}
+
+model CalendarEvent {
+  id            String   @id @default(cuid())
+  googleEventId String?  // Google Calendar event ID
+  calendarId    String   // Google Calendar ID (usually email)
+  title         String
+  description   String?
+  startTime     DateTime
+  endTime       DateTime
+  location      String?
+  conferenceUrl String?
+  htmlLink      String?  // Link to event in Google Calendar
+  syncStatus    String   @default("SYNCED") // SYNCED, PENDING_SYNC, ERROR
+  lastSyncAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  bookingId     String?  @unique
+  booking       Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, googleEventId])
+  @@index([workspaceId, syncStatus])
+  @@index([calendarId, startTime])
+}
+
+model CalendarIntegration {
+  id                 String   @id @default(cuid())
+  calendarId         String   // Google Calendar ID (email)
+  accessToken        String   // Encrypted
+  refreshToken       String   // Encrypted
+  expiresAt          DateTime?
+  isActive           Boolean  @default(true)
+  lastSyncAt         DateTime?
+  primaryCalendar    Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  workspaceId        String
+  workspace          Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  userId             String?
+  user               User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, calendarId])
+  @@index([workspaceId, isActive])
+}
+
+// ============================================
+// QUEUE & JOBS (Phase 5)
+// ============================================
+
+model Job {
+  id            String   @id @default(cuid())
+  type          String   // SEND_EMAIL, SEND_SMS, WAIT, EXECUTE_ACTION
+  status        String   @default("PENDING") // PENDING, PROCESSING, SUCCESS, FAILED, DELAYED
+  payload       String   // JSON
+  result        String?  // JSON
+  error         String?
+  retries       Int      @default(0)
+  maxRetries    Int      @default(3)
+  scheduledFor  DateTime? // Para delayed jobs
+  processedAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  automationRunId String?
+  automationRun   AutomationRun? @relation(fields: [automationRunId], references: [id], onDelete: Cascade)
+
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+  @@index([scheduledFor, status])
+  @@index([automationRunId])
+}
+
+// ============================================
+// WHITE LABEL & WORKSPACE SETTINGS
+// ============================================
+
+model WorkspaceSettings {
+  id              String   @id @default(cuid())
+  workspaceId     String   @unique
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  // Branding
+  logoUrl         String?
+  faviconUrl      String?
+  primaryColor    String   @default("#2563eb") // Blue
+  secondaryColor  String   @default("#1e40af") // Dark blue
+  accentColor     String   @default("#dbeafe") // Light blue
+
+  // Company info
+  companyName     String?
+  companyWebsite  String?
+  supportEmail    String?
+  supportPhone    String?
+
+  // Custom domain
+  customDomain    String?  @unique
+  customDomainVerified Boolean @default(false)
+
+  // Plan & billing
+  plan            String   @default("free") // free, pro, enterprise
+  billingEmail    String?
+  monthlyLimitContacts Int @default(100)
+  monthlyLimitMessages Int @default(1000)
+  monthlyLimitForms Int @default(10)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([workspaceId])
+  @@index([customDomain])
+}
+
+model UserInvitation {
+  id              String   @id @default(cuid())
+  email           String
+  workspaceId     String
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  role            String   @default("member") // admin, member, viewer
+  token           String   @unique
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  createdAt       DateTime @default(now())
+
+  @@unique([workspaceId, email])
+  @@index([token])
+  @@index([workspaceId])
+}
